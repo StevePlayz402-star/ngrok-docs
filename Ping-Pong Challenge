@@ -1,0 +1,87 @@
+npm init -y
+npm install express ws
+
+const express = require('express');
+const WebSocket = require('ws');
+const path = require('path');
+
+const app = express();
+const port = 3000;
+
+//Serve static files (like your index.html)
+app.use(express.static(path.join(__dirname, 'public')));
+
+//Create a WebSocket server
+const wss = new WebSocket.Server({ noServer: true });
+
+//Handle WebSocket connections
+wss.on('connection', (ws) => {
+  console.log('A player connected');
+  
+  ws.on('message', (message) => {
+    console.log('Received message: ' + message);
+    //Broadcast the message to all clients (if needed)
+    wss.clients.forEach(client => {
+      if (client !== ws && client.readyState === WebSocket.OPEN) {
+        client.send(message);
+      }
+    });
+  });
+
+  ws.on('close', () => {
+    console.log('A player disconnected');
+  });
+});
+
+// Upgrade HTTP server to WebSocket
+app.server = app.listen(port, () => {
+  console.log(`Server running on http://localhost:${port}`);
+});
+
+app.server.on('upgrade', (request, socket, head) => {
+  wss.handleUpgrade(request, socket, head, (ws) => {
+    wss.emit('connection', ws, request);
+  });
+});
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ping-Pong Game</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <h1>Ping-Pong Challenge</h1>
+  <div id="gameContainer">
+    <!-- Game board will go here -->
+  </div>
+  <script src="client.js"></script>
+</body>
+</html>
+
+const socket = new WebSocket('ws://localhost:3000');
+
+socket.onopen = () => {
+  console.log('Connected to WebSocket server');
+};
+
+socket.onmessage = (event) => {
+  console.log('Message from server:', event.data);
+  //Handle game state updates or messages here
+};
+
+socket.onerror = (error) => {
+  console.error('WebSocket Error: ', error);
+};
+
+socket.onclose = () => {
+  console.log('WebSocket connection closed');
+};
+
+//Example: Send a message to the server
+function sendMessage(message) {
+  socket.send(message);
+}
+
